@@ -1,0 +1,21 @@
+# 1. Virtual Environment (Crucial - never commit this!)
+venv/
+env/
+.venv/
+
+# 2. Python Cache (Junk files)
+__pycache__/
+*.pyc
+
+# 3. Mac OS System Files (Since you are on a Mac)
+.DS_Store
+
+# 4. Streamlit & Secrets
+.streamlit/secrets.toml
+# We ignore secrets.toml but usually keep config.toml
+
+# 5. Environment Variables
+.env
+
+# 6. VS Code Settings (Optional, but good for teams)
+.vscode/
