@@ -1,64 +1,118 @@
 import streamlit as st
+import json
+import tiktoken
+import textwrap
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
-import textwrap
-import json
 
-# --- PAGE CONFIGURATION ---
-st.set_page_config(page_title="Prism | RAG Visualizer", page_icon="💎", layout="wide")
+# --- 1. CONFIGURATION ---
+st.set_page_config(
+    page_title="Prism", 
+    page_icon="💎", 
+    layout="wide", 
+    initial_sidebar_state="expanded"
+)
 
-# Custom CSS for the "chunk cards"
 st.markdown("""
 <style>
+    /* GLOBAL FONTS */
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap');
+    
+    html, body, [class*="css"] {
+        font-family: 'Inter', sans-serif;
+        color: #0f172a;
+    }
+
+    /* --- 1. HIDE HEADER & FOOTER --- */
+    [data-testid="stDecoration"] { display: none; }
+    [data-testid="stToolbar"] { display: none; }
+    footer { display: none; }
+    header { background-color: transparent !important; }
+
+    /* --- 2. LOCK SIDEBAR OPEN --- */
+    
+    /* Hide the button that collapses the sidebar */
+    button[data-testid="baseButton-header"] {
+        display: none !important;
+    }
+    
+    /* Hide the "Open Sidebar" arrow (so it looks cleaner) */
+    [data-testid="stSidebarCollapsedControl"] {
+        display: none !important;
+    }
+    
+    /* Force sidebar width and visibility */
+    section[data-testid="stSidebar"] {
+        display: block !important;
+        width: 336px !important;
+    }
+    
+    /* --- 3. UI STYLING --- */
+    section[data-testid="stSidebar"] {
+        background-color: #f8fafc;
+        border-right: 1px solid #e2e8f0;
+    }
+    
+    /* Clean Cards */
     .chunk-card {
-        padding: 15px;
+        background-color: #ffffff;
+        border: 1px solid #e2e8f0;
         border-radius: 8px;
-        margin-bottom: 10px;
-        border: 1px solid #eee;
-        color: #1f1f1f; /* Force dark text */
-        transition: all 0.3s ease;
+        padding: 24px;
+        margin-bottom: 16px;
+        box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1);
     }
-    .chunk-header {
-        font-size: 0.8em;
-        color: #555555;
-        margin-bottom: 5px;
-        font-weight: bold;
+    
+    .card-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 12px;
+        padding-bottom: 12px;
+        border-bottom: 1px solid #f1f5f9;
+        font-size: 13px;
+        font-weight: 600;
+        color: #64748b;
+        letter-spacing: 0.05em;
     }
+    
+    .chunk-text {
+        font-size: 15px;
+        line-height: 1.6;
+        color: #334155;
+    }
+    
     .highlight-overlap {
-        background-color: #ffd700;
-        color: black;
-        padding: 0 2px;
-        border-radius: 3px;
-        font-weight: bold;
+        background-color: #fef9c3;
+        color: #854d0e;
+        padding: 2px 4px;
+        border-radius: 4px;
+        border-bottom: 2px solid #fde047;
     }
-    /* New Style for Search Matches */
+    
     .match-card {
-        border: 2px solid #00c853 !important; /* Green Border */
-        box-shadow: 0px 4px 15px rgba(0, 200, 83, 0.2);
+        border-left: 4px solid #10b981;
+        background-color: #f0fdf4;
     }
-    .match-badge {
-        background-color: #00c853;
-        color: white;
+    
+    .badge {
+        display: inline-flex;
+        align-items: center;
         padding: 2px 8px;
-        border-radius: 12px;
-        font-size: 0.8em;
-        float: right;
-    .warning-badge {
-        background-color: #ffcc00; /* Yellow-Orange */
-        color: black;
-        padding: 2px 8px;
-        border-radius: 12px;
-        font-size: 0.8em;
-        float: right;
-        margin-left: 10px;
-        font-weight: bold;
+        border-radius: 99px;
+        font-size: 11px;
+        font-weight: 600;
+        margin-left: 6px;
     }
-    }
+    
+    .badge-gray { background: #f1f5f9; color: #64748b; }
+    .badge-green { background: #dcfce7; color: #15803d; }
+    .badge-red { background: #fee2e2; color: #991b1b; }
 </style>
 """, unsafe_allow_html=True)
 
-# --- HELPER FUNCTIONS ---
+# --- 3. HELPER FUNCTIONS ---
 def get_overlap_text(prev_chunk, current_chunk):
     if not prev_chunk: return ""
     check_len = min(len(prev_chunk), len(current_chunk))
@@ -69,103 +123,86 @@ def get_overlap_text(prev_chunk, current_chunk):
     return ""
 
 def calculate_similarity(query, chunks):
-    """
-    Calculates the cosine similarity between the query and every chunk.
-    Returns a list of scores (0.0 to 1.0).
-    """
-    if not query or not chunks:
-        return [0.0] * len(chunks)
-    
-    # Add query to the list of documents so we can vectorize them all together
-    documents = [query] + chunks
-    
-    # Convert text to numbers (TF-IDF vectors)
-    vectorizer = TfidfVectorizer().fit_transform(documents)
+    if not query or not chunks: return [0.0] * len(chunks)
+    vectorizer = TfidfVectorizer(stop_words='english').fit_transform([query] + chunks)
     vectors = vectorizer.toarray()
-    
-    # Calculate similarity between Query (index 0) and all Chunks (index 1 to end)
-    query_vector = vectors[0:1]
-    chunk_vectors = vectors[1:]
-    
-    # cosine_similarity returns a matrix, we flatten it to a simple list
-    scores = cosine_similarity(query_vector, chunk_vectors).flatten()
-    return scores
+    return cosine_similarity(vectors[0:1], vectors[1:]).flatten()
 
-# --- HEADER ---
-col1, col2 = st.columns([1, 6])
-with col1: st.title("💎")
-with col2: 
-    st.title("Prism")
-    st.caption("The RAG Chunk Visualizer. See how your data gets split & retrieved.")
+def count_tokens(text):
+    encoding = tiktoken.get_encoding("cl100k_base")
+    return len(encoding.encode(text))
 
-st.divider()
-
-# --- SIDEBAR: CONTROLS ---
+# --- 4. SIDEBAR ---
 with st.sidebar:
-    st.header("🔪 Settings")
+    st.markdown("## 💎 Prism")
+    st.markdown("Visual debugger for RAG pipelines.")
+    st.markdown("---")
+    
+    st.markdown("### ⚙️ Configuration")
     chunk_size = st.slider("Chunk Size", 50, 2000, 500, 50)
     chunk_overlap = st.slider("Chunk Overlap", 0, 500, 50, 10)
+    
     if chunk_overlap >= chunk_size:
-        st.error("⚠️ Overlap must be smaller than Chunk Size!")
-        chunk_overlap = chunk_size - 1
-    # st.divider()
-    # st.header("💾 Export")
+        st.warning("⚠️ Overlap should be smaller than size.")
+        
+    st.markdown("---")
+    st.markdown("### 📊 Live Stats")
+    stats_placeholder = st.empty() # Placeholder for later updates
 
-# --- MAIN: INPUT AREA ---
-default_text = """RAG (Retrieval-Augmented Generation) is a technique for enhancing the accuracy and reliability of generative AI models with facts fetched from external sources.
+# --- 5. MAIN AREA ---
+# Input Section
+st.markdown("### Source Document")
+text_input = st.text_area(
+    "Input Text", 
+    height=150, 
+    placeholder="Paste your raw text or article here...", 
+    label_visibility="collapsed"
+)
+
+# Default Demo Text
+if not text_input:
+    text_input = """RAG (Retrieval-Augmented Generation) is a technique for enhancing the accuracy and reliability of generative AI models with facts fetched from external sources.
 
 Building a RAG pipeline usually involves two main steps: retrieval and generation. In the retrieval step, the system searches for relevant documents in a knowledge base. In the generation step, the LLM uses the retrieved context to answer the user's question.
 
 However, splitting the text correctly is crucial. If you split the text in the middle of a sentence, the model might lose the semantic meaning. This is why tools like Prism are necessary to visualize the process."""
 
-text_input = st.text_area("📄 Paste your document text here:", value=default_text, height=200)
+# Search Section
+col1, col2 = st.columns([3, 1])
+with col1:
+    st.markdown("### Simulation")
+    query = st.text_input("Search Query", placeholder="Enter a question to test retrieval...", label_visibility="collapsed")
+with col2:
+    st.markdown("### Export")
+    # Button will be rendered later with data
 
-# --- SEARCH BAR ---
-query = st.text_input("🔍 Simulate Retrieval (Type a query to see which chunks match):", placeholder="e.g., 'What is the retrieval step?'")
-
-# --- LOGIC: SPLITTING & SEARCH ---
+# --- 6. LOGIC & RENDER ---
 if text_input:
+    # Processing
     splitter = RecursiveCharacterTextSplitter(chunk_size=chunk_size, chunk_overlap=chunk_overlap, length_function=len)
     chunks = splitter.split_text(text_input)
-    print("✅ DEBUG: Splitting finished.")
-    
-# Run the Search logic
-    print("✅ DEBUG: Starting Similarity Calculation...") 
     scores = calculate_similarity(query, chunks)
-    print("✅ DEBUG: Similarity Calculation Done.") 
+    total_tokens = count_tokens(text_input)
 
-    # Metrics
-    m1, m2, m3 = st.columns(3)
-    m1.metric("Total Chunks", len(chunks))
-    m2.metric("Avg Chunk Size", f"{int(sum(len(c) for c in chunks) / len(chunks))} chars")
+    # Sidebar Stats Update
+    stats_placeholder.markdown(f"""
+    - **Chunks:** {len(chunks)}
+    - **Tokens:** {total_tokens}
+    - **Cost:** `${total_tokens * 0.0000001:.7f}`
+    """)
     
-    # Show Top Match Score
-    top_score = max(scores) if any(scores) else 0
-    m3.metric("Top Match Score", f"{int(top_score * 100)}%")
+    # Export Button Logic
+    chunk_data = [{"id": i, "content": c, "tokens": count_tokens(c)} for i, c in enumerate(chunks)]
+    with col2:
+        st.download_button("📥 JSON", data=json.dumps(chunk_data), file_name="prism-export.json", mime="application/json")
 
-    # --- EXPORT BUTTON ---
-    # Convert chunks to a structured JSON format
-    chunk_data = [{"chunk_id": i+1, "content": c, "length": len(c)} for i, c in enumerate(chunks)]
-    json_string = json.dumps(chunk_data, indent=2)
+    # Visualization
+    st.markdown("---")
     
-    st.download_button(
-        label="📥 Download Chunks as JSON",
-        data=json_string,
-        file_name="prism_chunks.json",
-        mime="application/json",
-        help="Download these chunks to use in your Vector Database."
-    )
-    
-    st.divider()
-    st.subheader("Results")
-
-    colors = ["#e3f2fd", "#e8f5e9", "#f3e5f5", "#fff3e0"]
     previous_chunk = None
-
-for i, chunk in enumerate(chunks):
-        color = colors[i % len(colors)]
-        
-        # --- 1. Overlap Logic ---
+    
+    for i, chunk in enumerate(chunks):
+        # 1. Calculate Overlap
         overlap_text = ""
         non_overlap_text = chunk
         if previous_chunk:
@@ -174,30 +211,41 @@ for i, chunk in enumerate(chunks):
                 overlap_text = overlap
                 non_overlap_text = chunk[len(overlap):]
         
-        # --- 2. Search Match Logic ---
+        # 2. Logic & Scores
         score = scores[i]
         is_match = score > 0.2
+        tokens = count_tokens(chunk)
+        
+        # 3. Badge Assembly
+        badges = []
+        # Token Badge
+        badges.append(f'<span class="badge badge-gray">{tokens} tok</span>')
+        # Match Badge
+        if is_match:
+            badges.append(f'<span class="badge badge-green">Match {int(score*100)}%</span>')
+        # Warning Badge (Ends with punctuation?)
+        if not chunk.strip().endswith(('.', '!', '?', '"', '”')):
+            badges.append('<span class="badge badge-red">⚠️ Bad Cut</span>')
+            
+        badges_html = "".join(badges)
+        
+        # 4. CSS Classes
         card_class = "chunk-card match-card" if is_match else "chunk-card"
         
-        # Create Badges HTML
-        badges_html = ""
-        if is_match:
-            badges_html += f'<span class="match-badge">Match: {int(score*100)}%</span>'
-
-        # --- 3. "Bad Cut" Warning Logic ⚠️ ---
-        # Check if the chunk ends with valid punctuation.
-        # We strip whitespace to ignore trailing newlines.
-        stripped_chunk = chunk.strip()
-        if not stripped_chunk.endswith(('.', '!', '?', '"', '”')):
-            badges_html += '<span class="warning-badge">⚠️ Bad Cut</span>'
-        
-        # --- 4. Render HTML ---
+        # 5. Render HTML
         display_text = non_overlap_text.replace("\n", "<br>")
         
-        html_code = f'<div class="{card_class}" style="background-color: {color}"><div class="chunk-header">CHUNK {i + 1} • {len(chunk)} CHARS {badges_html}</div><span class="highlight-overlap" title="Overlap">{overlap_text}</span>{display_text}</div>'
-
+        html_code = textwrap.dedent(f"""
+            <div class="{card_class}">
+                <div class="card-header">
+                    <span>CHUNK {i+1:02d}</span>
+                    <div>{badges_html}</div>
+                </div>
+                <div class="chunk-text">
+                    <span class="highlight-overlap" title="Overlap Region">{overlap_text}</span>{display_text}
+                </div>
+            </div>
+        """)
+        
         st.markdown(html_code, unsafe_allow_html=True)
         previous_chunk = chunk
-
-else:
-    st.info("👈 Waiting for text input...")

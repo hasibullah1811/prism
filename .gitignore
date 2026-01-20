@@ -1,21 +1,22 @@
-# 1. Virtual Environment (Crucial - never commit this!)
-venv/
-env/
-.venv/
-
-# 2. Python Cache (Junk files)
-__pycache__/
-*.pyc
-
-# 3. Mac OS System Files (Since you are on a Mac)
+# --- GLOBAL ---
 .DS_Store
-
-# 4. Streamlit & Secrets
-.streamlit/secrets.toml
-# We ignore secrets.toml but usually keep config.toml
-
-# 5. Environment Variables
-.env
-
-# 6. VS Code Settings (Optional, but good for teams)
 .vscode/
+.idea/
+
+# --- BACKEND (Python) ---
+backend/venv/
+backend/__pycache__/
+*.py[cod]
+*.so
+.env
+.pytest_cache/
+backend/*.egg-info/
+
+# --- FRONTEND (Node/React) ---
+frontend/node_modules/
+frontend/dist/
+frontend/.env
+frontend/.env.local
+frontend/npm-debug.log*
+frontend/yarn-debug.log*
+frontend/yarn-error.log*
