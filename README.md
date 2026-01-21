@@ -2,18 +2,27 @@
 
 Prism is a full-stack developer tool for visualizing and debugging RAG (Retrieval-Augmented Generation) pipelines. It helps engineers understand how text chunking strategies (Token size, Overlap) affect retrieval accuracy.
 
-## 🚀 Features
+![Prism Dashboard](./assets/dashboard_preview.png)
 
--   **Real-time Chunking:** Visualize how `RecursiveCharacterTextSplitter` breaks down documents.
--   **Overlap Highlighting:** Visually identify the context overlap between chunks (crucial for maintaining semantic meaning).
--   **Search Simulation:** Test retrieval using TF-IDF and Cosine Similarity to find which chunks match a user query.
--   **Tokenizer Stats:** Real-time token counting using `tiktoken`.
+## 🚀 Key Features
+
+### 🧠 Visualization & Debugging
+-   **2D Semantic Map (PCA):** Visualizes high-dimensional vector embeddings on a 2D plane to show semantic clusters.
+-   **Confidence Monitor:** Real-time bar charts showing the TF-IDF score distribution for the top 5 retrieved chunks.
+-   **Token "X-Ray" Ribbon:** Toggles between plain text and a color-coded "Matrix View" to visualize exact token boundaries (using `tiktoken`).
+-   **Search Term Highlighting:** Explains *why* a chunk matched by highlighting the exact terms found in the query.
+
+### ⚙️ Core Functionality
+-   **Real-time Chunking:** Adjustable `chunk_size` and `chunk_overlap` sliders.
+-   **Overlap Highlighting:** Visually identifies the context carried over between chunks (yellow highlights).
+-   **Export Data:** Download processed chunks and metadata as JSON for offline analysis.
 
 ## 🛠️ Tech Stack
 
 **Frontend:**
 -   React (Vite)
--   Tailwind CSS (Modern UI)
+-   Tailwind CSS (Styling)
+-   Recharts (Data Visualization)
 -   Lucide React (Icons)
 
 **Backend:**
