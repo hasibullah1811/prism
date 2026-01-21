@@ -4,6 +4,7 @@ import { Split, FileText, AlertTriangle, Search, Info, Download, Map } from 'luc
 import { ScatterChart, Scatter, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 
 function App() {
+  const [showRibbon, setShowRibbon] = useState(false); // Toggle State
   const [text, setText] = useState("")
   const [query, setQuery] = useState("") 
   const [chunks, setChunks] = useState([])
@@ -12,6 +13,30 @@ function App() {
   
   const [chunkSize, setChunkSize] = useState(500)
   const [overlap, setOverlap] = useState(50)
+
+  const TokenRibbon = ({ tokens, isOverlap }) => {
+  if (!tokens || tokens.length === 0) return null;
+  
+  return (
+    <span className="leading-6">
+      {tokens.map((token, i) => (
+        <span 
+          key={i} 
+          className={`
+            inline-block px-1 py-0.5 mx-[1px] rounded text-xs font-mono border-b-2
+            ${isOverlap 
+              ? (i % 2 === 0 ? 'bg-yellow-100 border-yellow-300 text-yellow-900' : 'bg-yellow-200 border-yellow-400 text-yellow-900') 
+              : (i % 2 === 0 ? 'bg-slate-100 border-slate-300 text-slate-700' : 'bg-white border-slate-200 text-slate-700')
+            }
+          `}
+          title={`Token #${i+1}`}
+        >
+          {token}
+        </span>
+      ))}
+    </span>
+  );
+};
 
   const handleProcess = async () => {
     setLoading(true)
@@ -49,6 +74,41 @@ function App() {
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
   };
+
+  // --- HELPER: HIGHLIGHTER ---
+const HighlightedText = ({ text, query, isOverlap }) => {
+  if (!query || !text) return <span>{text}</span>;
+
+  // 1. Break query into separate words (e.g., "Vector Database" -> ["Vector", "Database"])
+  // Filter out short words (like "is", "a", "the") to avoid noise
+  const terms = query.trim().split(/\s+/).filter(term => term.length > 2);
+  
+  if (terms.length === 0) return <span>{text}</span>;
+
+  // 2. Create a Regex to find all terms (Case Insensitive)
+  const regex = new RegExp(`(${terms.join('|')})`, 'gi');
+  
+  // 3. Split text by matches
+  const parts = text.split(regex);
+
+  return (
+    <span>
+      {parts.map((part, i) => {
+        // Check if this part is a match
+        const isMatch = terms.some(term => term.toLowerCase() === part.toLowerCase());
+        
+        if (isMatch) {
+          return (
+            <span key={i} className={`${isOverlap ? 'bg-blue-200 text-blue-900' : 'bg-blue-100 text-blue-800'} font-bold px-0.5 rounded mx-0.5 border-b-2 border-blue-300`}>
+              {part}
+            </span>
+          );
+        }
+        return part;
+      })}
+    </span>
+  );
+};
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 font-sans p-8">
@@ -177,18 +237,28 @@ function App() {
              </div>
            ) : (
              <div className="space-y-4">
-               <div className="flex items-center justify-between mb-2">
-                  <div className="flex items-center gap-2">
-                    <h2 className="text-lg font-semibold text-slate-800">Results</h2>
-                    <span className="text-xs bg-slate-200 text-slate-600 px-2 py-0.5 rounded-full">
-                      {chunks.length}
-                    </span>
-                  </div>
-                  <button onClick={handleExportJSON} className="flex items-center gap-2 text-sm font-medium text-slate-600 hover:text-blue-600 bg-white border border-slate-200 hover:border-blue-200 px-3 py-1.5 rounded-lg shadow-sm transition-all">
-                    <Download className="w-4 h-4" />
-                    Export JSON
-                  </button>
-               </div>
+<div className="flex items-center gap-4 mb-2"> {/* Removed justify-between */}
+  <div className="flex items-center gap-2">
+    <h2 className="text-lg font-semibold text-slate-800">Results</h2>
+    <span className="text-xs bg-slate-200 text-slate-600 px-2 py-0.5 rounded-full">
+      {chunks.length}
+    </span>
+  </div>
+  
+  {/* Added ml-auto here to push this and the next button to the right */}
+  <button onClick={handleExportJSON} className="ml-auto flex items-center gap-2 text-sm font-medium text-slate-600 hover:text-blue-600 bg-white border border-slate-200 hover:border-blue-200 px-3 py-1.5 rounded-lg shadow-sm transition-all">
+    <Download className="w-4 h-4" />
+    Export JSON
+  </button>
+
+  <button 
+    onClick={() => setShowRibbon(!showRibbon)}
+    className={`flex items-center gap-2 text-sm font-medium px-3 py-1.5 rounded-lg shadow-sm transition-all border ${showRibbon ? 'bg-indigo-50 text-indigo-600 border-indigo-200' : 'bg-white text-slate-600 border-slate-200'}`}
+  >
+    {showRibbon ? "Hide Tokens" : "Show Tokens"}
+  </button>
+</div>
+
                
                {chunks.map((chunk) => {
                  const isMatch = chunk.score > 0.05; 
@@ -214,13 +284,28 @@ function App() {
                          </span>
                       </div>
                     </div>
+
+
                     <div className="p-5 text-sm leading-relaxed text-slate-700 font-medium">
-                      {chunk.overlap && (
-                        <span className="bg-yellow-100 text-yellow-800 border-b-2 border-yellow-300 rounded-sm px-1 mx-0.5" title="Overlap">
-                          {chunk.overlap}
-                        </span>
+                      
+                      {showRibbon ? (
+                        /* RIBBON VIEW */
+                        <>
+                          {chunk.overlap && <TokenRibbon tokens={chunk.overlap_tokens} isOverlap={true} />}
+                          <TokenRibbon tokens={chunk.remaining_tokens} isOverlap={false} />
+                        </>
+                      ) : (
+                        /* TEXT VIEW (Standard) */
+                        <>
+                          {chunk.overlap && (
+                            <span className="bg-yellow-100 text-yellow-800 border-b-2 border-yellow-300 rounded-sm px-1 mx-0.5 mr-2" title="Overlap">
+                              <HighlightedText text={chunk.overlap} query={query} isOverlap={true} />
+                            </span>
+                          )}
+                          <HighlightedText text={chunk.remaining} query={query} isOverlap={false} />
+                        </>
                       )}
-                      {chunk.remaining}
+                      
                     </div>
                  </div>
                )})}

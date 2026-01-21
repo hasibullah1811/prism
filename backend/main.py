@@ -37,6 +37,13 @@ def get_overlap_text(prev_chunk, current_chunk):
         if suffix == prefix: return suffix
     return ""
 
+def get_token_strings(text: str):
+    if not text: return []
+    encoding = tiktoken.get_encoding("cl100k_base")
+    token_ints = encoding.encode(text)
+    # Decode each integer back to its string representation
+    return [encoding.decode([t]) for t in token_ints]
+
 # --- NEW FUNCTION: TF-IDF Search ---
 def calculate_similarity(query, chunks):
     if not query or not chunks: return [0.0] * len(chunks)
@@ -106,6 +113,8 @@ def process_text(request: SplitRequest):
             "overlap": overlap_text,
             "remaining": remaining_text,
             "tokens": count_tokens(chunk),
+            "overlap_tokens": get_token_strings(overlap_text),
+            "remaining_tokens": get_token_strings(remaining_text),
             "bad_cut": not chunk.strip().endswith(('.', '!', '?', '"', '”')),
             "score": float(scores[i]) if i < len(scores) else 0.0,
             "x": float(x), # Send X to frontend
