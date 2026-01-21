@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Split, FileText, AlertTriangle, Search, Info, Download, Map } from 'lucide-react'
 // NEW IMPORT
-import { ScatterChart, Scatter, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
+import { ScatterChart, Scatter, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, BarChart, Bar, Legend } from 'recharts';
 
 function App() {
   const [showRibbon, setShowRibbon] = useState(false); // Toggle State
@@ -186,46 +186,92 @@ const HighlightedText = ({ text, query, isOverlap }) => {
         {/* RIGHT COLUMN: Results */}
         <div className="lg:col-span-8 space-y-6">
            
-           {/* --- 1. SEMANTIC MAP (New Visualization) --- */}
+{/* --- VISUALIZATION ROW (Map + Confidence) --- */}
            {chunks.length > 2 && (
-             <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
-                <h2 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-4 flex items-center gap-2">
-                  <Map className="w-3 h-3" /> Semantic Map (PCA)
-                </h2>
-                <div className="h-64 w-full bg-slate-50 rounded-lg border border-slate-100 relative">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <ScatterChart margin={{ top: 20, right: 20, bottom: 20, left: 20 }}>
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis type="number" dataKey="x" name="x" hide />
-                      <YAxis type="number" dataKey="y" name="y" hide />
-                      <Tooltip cursor={{ strokeDasharray: '3 3' }} content={({ payload }) => {
-                          if (payload && payload.length) {
-                            const data = payload[0].payload;
-                            return (
-                              <div className="bg-white p-2 border shadow-sm rounded text-xs">
-                                <p className="font-bold">{data.label}</p>
-                                {data.score && <p>Match: {Math.round(data.score * 100)}%</p>}
-                              </div>
-                            );
+             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+               
+               {/* 1. SEMANTIC MAP (Left) */}
+               <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
+                  <h2 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-4 flex items-center gap-2">
+                    <Map className="w-3 h-3" /> Semantic Map
+                  </h2>
+                  <div className="h-64 w-full bg-slate-50 rounded-lg border border-slate-100 relative">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <ScatterChart margin={{ top: 20, right: 20, bottom: 20, left: 20 }}>
+                        <CartesianGrid strokeDasharray="3 3" />
+                        <XAxis type="number" dataKey="x" name="x" hide />
+                        <YAxis type="number" dataKey="y" name="y" hide />
+                        <Tooltip cursor={{ strokeDasharray: '3 3' }} content={({ payload }) => {
+                            if (payload && payload.length) {
+                              const data = payload[0].payload;
+                              return (
+                                <div className="bg-white p-2 border shadow-sm rounded text-xs">
+                                  <p className="font-bold">{data.label || `Chunk ${data.id}`}</p>
+                                  {data.score && <p>Match: {Math.round(data.score * 100)}%</p>}
+                                </div>
+                              );
+                            }
+                            return null;
+                        }} />
+                        <Scatter name="Chunks" data={chunks} fill="#3b82f6">
+                           {chunks.map((entry, index) => (
+                             <Cell key={`cell-${index}`} fill={entry.score > 0.05 ? '#10b981' : '#cbd5e1'} />
+                           ))}
+                        </Scatter>
+                        {query && (
+                          <Scatter name="Query" data={[{ x: queryCoords.x, y: queryCoords.y, label: "QUERY" }]} fill="#ef4444" shape="star" />
+                        )}
+                      </ScatterChart>
+                    </ResponsiveContainer>
+                  </div>
+               </div>
+
+               {/* 2. CONFIDENCE MONITOR (Right) - NEW! */}
+               <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
+                  <h2 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-4 flex items-center gap-2">
+                    <AlertTriangle className="w-3 h-3" /> Top Matches
+                  </h2>
+                  <div className="h-64 w-full">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart 
+                        data={[...chunks].sort((a, b) => b.score - a.score).slice(0, 5)} // Top 5
+                        layout="vertical"
+                        margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
+                      >
+                        <CartesianGrid strokeDasharray="3 3" horizontal={false} />
+                        <XAxis type="number" domain={[0, 1]} hide />
+                        <YAxis dataKey="id" type="category" width={50} tickFormatter={(val) => `Ch ${val}`} tick={{fontSize: 10}} />
+                        <Tooltip 
+                          cursor={{fill: 'transparent'}}
+                          content={({ payload }) => {
+                            if (payload && payload.length) {
+                              const data = payload[0].payload;
+                              return (
+                                <div className="bg-white p-2 border shadow-sm rounded text-xs">
+                                  <p className="font-bold">Chunk {data.id}</p>
+                                  <p>Score: {(data.score * 100).toFixed(1)}%</p>
+                                </div>
+                              );
+                            }
+                            return null;
+                          }}
+                        />
+                        <Bar dataKey="score" radius={[0, 4, 4, 0]}>
+                          {
+                            // Dynamic Coloring: High = Green, Low = Grey
+                            [...chunks].sort((a, b) => b.score - a.score).slice(0, 5).map((entry, index) => (
+                              <Cell key={`cell-${index}`} fill={entry.score > 0.5 ? '#10b981' : (entry.score > 0.2 ? '#3b82f6' : '#94a3b8')} />
+                            ))
                           }
-                          return null;
-                      }} />
-                      {/* CHUNKS (Blue Dots) */}
-                      <Scatter name="Chunks" data={chunks} fill="#3b82f6">
-                         {chunks.map((entry, index) => (
-                           <Cell key={`cell-${index}`} fill={entry.score > 0.05 ? '#10b981' : '#cbd5e1'} />
-                         ))}
-                      </Scatter>
-                      {/* QUERY (Red Dot) */}
-                      {query && (
-                        <Scatter name="Query" data={[{ x: queryCoords.x, y: queryCoords.y, label: "QUERY" }]} fill="#ef4444" shape="star" />
-                      )}
-                    </ScatterChart>
-                  </ResponsiveContainer>
-                  <p className="absolute bottom-2 right-2 text-[10px] text-slate-400 bg-white/50 px-2 rounded">
-                    Closer dots = More similar meaning
+                        </Bar>
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                  <p className="text-[10px] text-slate-400 text-center mt-2">
+                    Retrieval Confidence (0.0 - 1.0)
                   </p>
-                </div>
+               </div>
+
              </div>
            )}
 
