@@ -149,7 +149,7 @@ networkx @ file:///private/var/folders/nz/j6p8yfhx1mv_0grj5xl4650h0000gp/T/abs_b
 nltk==3.8.1
 notebook @ file:///home/conda/feedstock_root/build_artifacts/notebook_1691139191280/work
 notebook_shim @ file:///home/conda/feedstock_root/build_artifacts/notebook-shim_1682360583588/work
-numpy==2.4.1
+numpy==1.26.4
 openai==1.1.1
 opencv-python==4.11.0.86
 openpyxl==3.1.2
