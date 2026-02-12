@@ -4,6 +4,18 @@ Prism is a full-stack developer tool for visualizing and debugging RAG (Retrieva
 
 ![Prism Dashboard](./assets/dashboard_preview.png)
 
+[![Live Demo](https://img.shields.io/badge/Live_Demo-Visit_Prism-blue?style=for-the-badge&logo=vercel)](https://prism-xi-three.vercel.app/)
+
+---
+
+## ⚡ Quick Start
+
+**Try it live here:** [https://prism-xi-three.vercel.app/](https://prism-xi-three.vercel.app/)
+
+*⚠️ **Note:** The backend is hosted on a free instance (Render). It may take ~50 seconds to "wake up" for the first request. Subsequent requests will be instant.*
+
+---
+
 ## 🚀 Key Features
 
 ### 🧠 Visualization & Debugging
